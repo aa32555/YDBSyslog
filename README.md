@@ -1,92 +1,129 @@
-# YDBSyslog
+YDBSyslog – Capture Syslog data in a Database for Analytics, Troubleshooting and Forensics
 
+YDBSyslog is a tool to capture syslog data in a YottaDB database using the `journalctl --output=export` format. It operates in two modes:
 
+- Running `journalctl` in a PIPE device. With the optional `--follow` option, YDBSyslog continuously monitors `journalctl` output and captures the output in real time.
+- Reading a `journalctl` export from stdin. Reading from `journalctl --output=export --follow` in a pipe is effectively the same as reading from a PIPE device with the `--follow` option.
 
-## Getting started
-
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-- [ ] [Create](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#create-a-file) or [upload](https://docs.gitlab.com/ee/user/project/repository/web_editor.html#upload-a-file) files
-- [ ] [Add files using the command line](https://docs.gitlab.com/ee/gitlab-basics/add-file.html#add-a-file-using-the-command-line) or push an existing Git repository with the following command:
-
-```
-cd existing_repo
-git remote add origin https://gitlab.com/YottaDB/Util/YDBSyslog.git
-git branch -M main
-git push -uf origin main
-```
-
-## Integrate with your tools
-
-- [ ] [Set up project integrations](https://gitlab.com/YottaDB/Util/YDBSyslog/-/settings/integrations)
-
-## Collaborate with your team
-
-- [ ] [Invite team members and collaborators](https://docs.gitlab.com/ee/user/project/members/)
-- [ ] [Create a new merge request](https://docs.gitlab.com/ee/user/project/merge_requests/creating_merge_requests.html)
-- [ ] [Automatically close issues from merge requests](https://docs.gitlab.com/ee/user/project/issues/managing_issues.html#closing-issues-automatically)
-- [ ] [Enable merge request approvals](https://docs.gitlab.com/ee/user/project/merge_requests/approvals/)
-- [ ] [Set auto-merge](https://docs.gitlab.com/ee/user/project/merge_requests/merge_when_pipeline_succeeds.html)
-
-## Test and Deploy
-
-Use the built-in continuous integration in GitLab.
-
-- [ ] [Get started with GitLab CI/CD](https://docs.gitlab.com/ee/ci/quick_start/index.html)
-- [ ] [Analyze your code for known vulnerabilities with Static Application Security Testing(SAST)](https://docs.gitlab.com/ee/user/application_security/sast/)
-- [ ] [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/ee/topics/autodevops/requirements.html)
-- [ ] [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/ee/user/clusters/agent/)
-- [ ] [Set up protected environments](https://docs.gitlab.com/ee/ci/environments/protected_environments.html)
-
-***
-
-# Editing this README
-
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thank you to [makeareadme.com](https://www.makeareadme.com/) for this template.
-
-## Suggestions for a good README
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
-
-## Name
-Choose a self-explaining name for your project.
-
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
-
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
-
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
-
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+YDBSyslog can output a DDL which can be fed to Octo, allow the syslog to be queried using SQL.
 
 ## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+```
+yottadb -run %YDBSYSLOG op [options]
+```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+Op [options] are
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+- `help` - Output options to use this program.
+- `ingestjnlctlcmd [options]` - Run the `journalctl --output=export` command in a PIPE.
+  Options are as follows; all options may be omitted.
+  `--boot [value]` - `--boot` is mutually exclusive with `--follow`. There are several cases:
+    1. If `value` is omitted, the `--boot` parameter is omitted when invoking `journalctl`.
+    1. If `value` is a hex string prefixed with `0x`, the string sans prefix is passed to `journalctl --boot`.
+    1. If a decimal number, it is passed unaltered to `journalctl --boot`.
+    1. If a case-independent `all`, that option is passed to `journalctl --boot`.
+  `--follow` is mutually exclusive with `--boot`. The `--follow` option is used to invoke `journalctl --follow`, and results in a continuous capture in the database of the syslog exported by `journalctl`.
+  `--moreopt` indicates that the rest of the command line should be passed verbatim to the `journalctl` command as additional options. See the Linux command `man journalctl` for details. YDBSyslog does no error checking of these additional options.
+- `ingestjnlctlfile` – read `journalctl --output=export` formatted data from stdin.
+- `octoddl` - output an Octo DDL to allow analysis of syslog data using SQL. Note that if the database combines syslog data from multiple systems, Octo SQL queries can span systems.
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+The following M entryrefs can called directly from applications written in M and other programming languages that support calls to M.
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+- `INGESTJNLCTLCMD(boot,follow,moreopt)` runs `journalctl --output=export` in a PIPE device. Parameters are:
+  - `boot` is the parameter for the `--boot` command line option of `journalctl`. There are several cases:
+    1. If unspecified or the empty string, the `--boot` option is omitted.
+    1. If a hex string prefixed with `"0x"`, the string sans prefix is passed to `journalctl` as the value.
+    1. If a decimal number, it is passed unaltered to `journalctl`.
+    1. If a case-independent `"all"`, that option is passed to `journalctl`.
+  - If `follow` is non-zero, INGESTJNLCTLCMD follows journalctl, continuously logging syslog output in the database. `boot` and `follow` are mutuially exclusive.
+  - `moreopt` is a string intended to be passed verbatim to the journalctl command. See the Linux command `man journalctl` for details. INGESTJNLCTMCMD does no error checking of these additional options.
+- `INGESTJNLCTLFILE` reads `jnlctl --output=export` formatted data from stdin.
+- `OCTODDL` generates the DDL that can be fed to Octo to query the ingested syslog data using SQL.
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Data are stored in nodes of `^%ydbSYSLOG` with the following subscripts, which are reverse engineered from the `__CURSOR` field of the `journalctl` export format. While `__CURSOR` is designated as opaque, reverse engineering provides a more compact database and faster access:
 
-## License
-For open source projects, say how it is licensed.
+- `Cs` – a UUID for a large number of syslog records.
+- `Cb` – evidently a boot UUID.
+- `Ci` - evidently the record number in a syslog.
+- `Ct` - evidently the number of microseconds since the UNIX epoch.
+- `Cm` – evidently a monolithic timestamp since boot.
+- `Cx` - a UUID that is unique to each syslog entry.
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Fields that `journalctl` has been found to flag as binary, e.g., `"MESSAGE"` and `"SYSLOG_RAW"` have an additional, sixth, subscript, the tag for the field.
+
+Note that since querying syslog entries is content based (e.g., the USER_ID field) and not by the subscripts, if the reverse engineering of `__CURSOR` is imperfect, or if a future `systemd-journald` changes the fields, it will not affect the correctness of queries; it will only affect database size and consequently access speed (smaller databases are faster).
+
+The numerous fields exported by `journalctl` are not well documented. [Systemd Journal Export Formats](https://systemd.io/JOURNAL_EXPORT_FORMATS/) is helpful, as is [man systemd.journal-fields](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html). However, outside the source code, there does not appear to be a comprehensive list of all fields. The fields listed in the `_YDBSYSLOG.m` source code were captured from a couple dozen Linux systems running releases and derivatives of Arch Linux, Debian GNU/Linux, Red Hat Enterprise Linux, SUSE Linux Enterprise, and Ubuntu. Even if `journalctl` exports additional fields not identified, %YDBSYSLOG captures them, and generates reasonable DDL entries for them.
+
+Should you find additional entries not identified by the `_YDBSYSLOG.m` source code, please create an Issue or a Merge Request.
+
+## Installation
+
+Since this is a plug-in for [YottaDB](https://gitlab.com/YottaDB/DB/YDB),
+YottaDB must be installed first.
+
+YDBSyslog requires YottaDB r1.36 or higher.
+
+To install, you need `cmake`, `make`, `cc`, and `ld` commands. After
+downloading this repository, you can install as follows:
+
+```
+cd <project directory>
+mkdir build && cd build
+cmake .. && make && sudo make install
+```
+
+Here is a sample installation:
+
+```
+$ cmake ..
+-- YDBCMake Source Directory: /home/ydbuser/work/gitlab/YDBSyslog/build/_deps/ydbcmake-src
+-- Setting locale to C.UTF-8
+-- Found YOTTADB: /usr/local/lib/yottadb/r138/libyottadb.so
+-- Install Location: /usr/local/lib/yottadb/r138/plugin
+-- Configuring done (1.0s)
+-- Generating done (0.0s)
+-- Build files have been written to: /home/ydbuser/work/gitlab/YDBSyslog/build
+$ make
+[ 25%] Building M object CMakeFiles/_ydbsyslogM.dir/_YDBSYSLOG.m.o
+[ 50%] Linking M shared library _ydbsyslog.so
+[ 50%] Built target _ydbsyslogM
+[ 75%] Building M object CMakeFiles/_ydbsyslogutf8.dir/_YDBSYSLOG.m.o
+[100%] Linking M shared library utf8/_ydbsyslog.so
+[100%] Built target _ydbsyslogutf8
+$ sudo make install
+[ 50%] Built target _ydbsyslogM
+[100%] Built target _ydbsyslogutf8
+Install the project...
+-- Install configuration: ""
+-- Installing: /usr/local/lib/yottadb/r138/plugin/o/_ydbsyslog.so
+-- Installing: /usr/local/lib/yottadb/r138/plugin/o/utf8/_ydbsyslog.so
+-- Up-to-date: /usr/local/lib/yottadb/r138/plugin/r/_YDBSYSLOG.m
+$ 
+```
+
+## Example
+
+```
+$ yottadb -run %YDBSYSLOG ingestjnlctlcmd --boot all # Get syslogs from mylaptop
+$ yottadb -run %YDBSYSLOG ingestjnlctlfile </extra/tmp/journalctl.export # Get exported journalctl from my server
+$ yottadb -run %YDBSYSLOG octoddl | octo # Define TABLE in Octo
+DROP TABLE
+CREATE TABLE
+$ echo "select _HOSTNAME, _COMM, MESSAGE from SYSLOG_DATA where _UID = 2261 and ( _COMM = 'mupip' or _COMM = 'yottadb' or _COMM = 'mumps' ) limit 2;" | octo
+_HOSTNAME|_COMM|MESSAGE
+mylaptop|mupip|%YDB-I-FILERENAME, File /tmp/test/r1.38_x86_64/g/yottadb.mjl is renamed to /tmp/test/r1.38_x86_64/g/yottadb.mjl_2023180120821 -- generated from 0x00007F5CDDC4B36E.
+mylaptop|mupip|%YDB-I-FILERENAME, File /tmp/test/r1.38_x86_64/g/%ydbocto.mjl is renamed to /tmp/test/r1.38_x86_64/g/%ydbocto.mjl_2023180120821 -- generated from 0x00007F5CDDC4B36E.
+(2 rows)
+$ echo "select _HOSTNAME, _COMM, MESSAGE from SYSLOG_DATA where _UID = 4528 and ( _COMM = 'mupip' or _COMM = 'yottadb' or _COMM = 'mumps' ) limit 2;" | octo
+_HOSTNAME|_COMM|MESSAGE
+myserver|mumps|%YDB-I-TEXT, %YDB-E-ZGBLDIRACC, Cannot access global directory /extra1/testarea1/testsys/tst_V989_R139_dbg_17_230707_173250/sudo_0/gtm7759/mumps.gld.  Cannot continue. -- generated from 0x00007FCCF1244143.
+myserver|mumps|%YDB-I-TEXT, %YDB-E-DBPRIVERR, No privilege for attempted update operation for file: /extra1/testarea1/testsys/tst_V989_R139_dbg_17_230707_173250/sudo_0/gtm7759/mumps.dat -- generated from 0x00007FEE9C112143.
+(2 rows)
+$ 
+```
+
+# License
+
+See both the COPYING and LICENSE files.
