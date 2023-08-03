@@ -30,7 +30,7 @@ Op [options] are
 
 The following M entryrefs can called directly from applications written in M and other programming languages that support calls to M.
 
-- `INGESTJNLCTLCMD(boot,follow,moreopt)` runs `journalctl --output=export` in a PIPE device. Parameters are:
+- `INGESTJNLCTLCMD^%YDBSYSLOG(boot,follow,moreopt)` runs `journalctl --output=export` in a PIPE device. Parameters are:
   - `boot` is the parameter for the `--boot` command line option of `journalctl`. There are several cases:
     1. If unspecified or the empty string, the `--boot` option is omitted.
     1. If a hex string prefixed with `"0x"`, the string sans prefix is passed to `journalctl` as the value.
@@ -38,8 +38,8 @@ The following M entryrefs can called directly from applications written in M and
     1. If a case-independent `"all"`, that option is passed to `journalctl`.
   - If `follow` is non-zero, INGESTJNLCTLCMD follows journalctl, continuously logging syslog output in the database. `boot` and `follow` are mutuially exclusive.
   - `moreopt` is a string intended to be passed verbatim to the journalctl command. See the Linux command `man journalctl` for details. INGESTJNLCTMCMD does no error checking of these additional options.
-- `INGESTJNLCTLFILE` reads `jnlctl --output=export` formatted data from stdin.
-- `OCTODDL` generates the DDL that can be fed to Octo to query the ingested syslog data using SQL.
+- `INGESTJNLCTLFILE^%YDBSYSLOG` reads `jnlctl --output=export` formatted data from stdin.
+- `OCTODDL^%YDBSYSLOG` generates the DDL that can be fed to Octo to query the ingested syslog data using SQL.
 
 Data are stored in nodes of `^%ydbSYSLOG` with the following subscripts, which are reverse engineered from the `__CURSOR` field of the `journalctl` export format. While `__CURSOR` is designated as opaque, reverse engineering provides a more compact database and faster access:
 
@@ -57,6 +57,17 @@ Note that since querying syslog entries is content based (e.g., the USER_ID fiel
 The numerous fields exported by `journalctl` are not well documented. [Systemd Journal Export Formats](https://systemd.io/JOURNAL_EXPORT_FORMATS/) is helpful, as is [man systemd.journal-fields](https://www.freedesktop.org/software/systemd/man/systemd.journal-fields.html). However, outside the source code, there does not appear to be a comprehensive list of all fields. The fields listed in the `_YDBSYSLOG.m` source code were captured from a couple dozen Linux systems running releases and derivatives of Arch Linux, Debian GNU/Linux, Red Hat Enterprise Linux, SUSE Linux Enterprise, and Ubuntu. Even if `journalctl` exports additional fields not identified, %YDBSYSLOG captures them, and generates reasonable DDL entries for them.
 
 Should you find additional entries not identified by the `_YDBSYSLOG.m` source code, please create an Issue or a Merge Request.
+
+### Sample Script
+
+Although there are many ways to script gathering data using %YDBSYSLOG, the program UseYDBSyslog is a sample script you can use. After reading the comments in the file `UseYDBSyslog.txt`:
+
+1. Edit the file `UseYDBSyslog.txt` to replace the sample loghost name, server names, and starting TCP port with the specific values for your environment.
+1. Save the file as `UseYDBSyslog.m` on the loghost and on each server in a location where YottaDB can execute it.
+1. To use it, first start it on the loghost, and then on each server, and confirm that the two port numbers reported by the loghost for each server match those the server reports.
+1. To collect all syslogs from all servers, intially, start it with `yottadb -run %XCMD 'do ^UseYDBSyslog(1)'`. Subsequently, a simple `yottadb -run UseYDBSyslog` suffices to capture syslogs from the current boot.
+
+The default configuration of UseYDBSyslog creates an unjournaled database that uses the MM access method. If you use journaling for recoverability, remember to monitor space used by prior generation journal files, and to delete those old journal files when they are no longer needed.
 
 ## Installation
 
