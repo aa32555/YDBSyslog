@@ -1,0 +1,125 @@
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;								;
+; Copyright (c) 2023 YottaDB LLC and/or its subsidiaries.	;
+; All rights reserved.						;
+;								;
+;	This source code contains the intellectual property	;
+;	of its copyright holder(s), and is made available	;
+;	under a license.  If you do not know the terms of	;
+;	the license, please stop and do not read further.	;
+;								;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;
+UseYDBSyslog(bootopt,dryrun,serverlst)
+; Centralized data capture with YDBSyslog. The label loghost identifies the
+; central logging server, and the servers which log to that loghost are
+; identified in lines following the label servers. If the loghost is to capture
+; its own syslog, it should also be listed under servers.
+;
+; The program should be run first on the loghost, to set up nc (netcat)
+; listeners before running it on the other servers. In order to avoid gaps in
+; the syslog records in the database, the program first starts journalctl
+; --follow and then journalctl --boot [bootopt]. The default of the current
+; boot minimizes duplicate database updates. Note that the same record sent by
+; two different journalctl processes results in only one database node or
+; subtree, since the second will simply be duplicate SET(s).
+;
+; The basic yottadb -run UseYDBSyslog command starts the journalctl --follow
+; logging and then logging for the current boot (i.e., journalctl, equivalent
+; to journalctl --boot 0). On both the central logging server and other
+; servers, no other options are required.
+;
+; The dryrun parameter, if nonzero, does not actually start logging, and
+; is useful for ensuring that the port numbers on the logging server and
+; other servers match.
+;
+; To start logging for only selected servers, pass a comma separated
+; server list in serverlst. To ensure port number matches between the
+; servers and the logging server, service is started for only servers
+; on both serverlst and following the server label below.
+;
+; To capture all logs for a server, start the following command:
+;   yottadb -run %XCMD 'do ^UseYDBSyslog("all")' (except Red Hat)
+;   yottadb -run %XCMD 'do ^UseYDBSyslog(1)' (on all distributions)
+;
+; The comand reports the pid(s) ($KEY values) of the shells executing
+; PIPE devices, which are opened with the INDEPENDENT device parameter
+; so that they continue to run even after the shell session of the
+; yottadb process terminates. For logging on the loghost, the logging
+; processes are JOB'd for the same reason.
+;
+; The userid for the loghost must have read-write database permissions.
+; and on servers, the rights to run journalctl.
+
+	new cmd,i,io,j,myname,line,loghost,ncopt,port,server
+	set io=$io
+	set bootopt=$get(bootopt)
+	set dryrun=$get(dryrun,0)
+	set loghost=$zpiece($text(loghost),";",2)
+	set pid=0
+	set port=$zpiece($text(portbeg),";",2)-1
+	set serverlst=$select($zlength($get(serverlst)):","_serverlst_",",1:"")
+	; Get the current hostname. It was found experimentally that not all systems
+	; provide the value in /etc/hostname, whereas uname -n is a POSIX standard.
+	open "hostname":(shell="/bin/sh":command="uname -n":readonly)::"pipe" use "hostname"
+	read myname set myname=$zpiece(myname,".",1)
+	use io close "hostname"
+	write "Loghost is ",loghost,!,$zchar(9),"Pid 1",$zchar(9),"Port 1",$zchar(9),"Pid 2",$zchar(9),"Port 2",!
+	if myname=loghost do
+	. for i=1:1 set server=$zpiece($text(servers+i),";",2) quit:'$zlength(server)  do
+	. . if '$zlength(serverlst)!$zfind(serverlst,","_server_",") do
+	. . . write server
+	. . . if myname=server  do
+	. . . . job:'dryrun INGESTJNLCTLCMD^%YDBSYSLOG(,1)
+	. . . . write $zchar(9),$zjob,$zchar(9),"n.a."
+	. . . . job:'dryrun INGESTJNLCTLCMD^%YDBSYSLOG(bootopt)
+	. . . . write $zchar(9),$zjob,$zchar(9),"n.a."
+	. . . . if $increment(port,2)
+	. . . else  for j=1:1:2 do
+	. . . . set cmd="nc -l "_$increment(port)_"|$ydb_dist/yottadb -run %YDBSYSLOG ingestjnlctlfile"
+	. . . . do:'dryrun
+	. . . . . open server_j:(shell="/bin/sh":command=cmd:readonly:writeonly:independent)::"pipe"
+	. . . . . use server_j
+	. . . . . set pid=$key
+	. . . . . write /eof
+	. . . . . use io close server_j
+	. . . . write $zchar(9),pid,$zchar(9),port
+	. . . write !
+	. . else  if $increment(port,2)
+	else  do:'$zlength(serverlst)!$zfind(serverlst,","_myname_",")
+	. set ncflag=" -N"
+	. open "/etc/os-release":readonly use "/etc/os-release"
+	. for  read line quit:$zeof!(" -N"'=ncflag)  set:$zfind(line,"ID_LIKE=""fedora""") ncflag=" --send-only"
+	. use io close "/etc/os/release"
+	. for i=1:1 set server=$zpiece($text(servers+i),";",2) quit:'$zlength(server)  do:server=myname  quit:'$zlength(port)
+	. . if $increment(port,2*i-2)
+	. . for j=1:1:2 do
+	. . . set cmd="journalctl --output=export --no-pager"_$select(1=j:" --follow",1:$select($zlength(bootopt):" --boot "_bootopt,1:""))_"|nc "_loghost_" "_$increment(port)_ncflag
+	. . . do:'dryrun
+	. . . . open loghost_j:(shell="/bin/sh":command=cmd:readonly:writeonly:independent)::"pipe"
+	. . . . use loghost_j
+	. . . . set pid=$key
+	. . . . write /eof
+	. . . . use io close server_j
+	. . . write $zchar(9),pid,$zchar(9),port
+	. . write !
+	. . set port=""
+	quit
+
+loghost	;thoth
+
+; The following is a list of all servers, with the first number that of a TCP port
+; for the journalctl --follow load, and the second the TCP port for the journalctl --boot all
+; load. If the syslog of the loghost is itself to be logged, it must be listed below.
+servers
+	;baka
+	;kakhet
+	;kheper
+	;medjedu
+	;nebmat
+	;shepeshet
+	;thoth
+	;userib
+
+; Port number to start netcat listeners
+portbeg	;3000
