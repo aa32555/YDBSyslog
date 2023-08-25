@@ -10,7 +10,7 @@
 ;								;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;
-UseYDBSyslog(bootopt,dryrun,serverlst)
+UseYDBSyslog(bootopt,dryrun,serverlst,moreopt)
 ; Centralized data capture with YDBSyslog. The label loghost identifies the
 ; central logging server, and the servers which log to that loghost are
 ; identified in lines following the label servers. If the loghost is to capture
@@ -42,6 +42,10 @@ UseYDBSyslog(bootopt,dryrun,serverlst)
 ;   yottadb -run %XCMD 'do ^UseYDBSyslog("all")' (except Red Hat)
 ;   yottadb -run %XCMD 'do ^UseYDBSyslog(1)' (on all distributions)
 ;
+; To capture logs from a server starting at a specific time, use the
+; moreopt parameter, e.g.
+;   yottadb -run %XCMD 'do ^UseYDBSyslog(,,,"--since=""2023-08-13 14:04""")'
+;
 ; The comand reports the pid(s) ($KEY values) of the shells executing
 ; PIPE devices, which are opened with the INDEPENDENT device parameter
 ; so that they continue to run even after the shell session of the
@@ -51,10 +55,11 @@ UseYDBSyslog(bootopt,dryrun,serverlst)
 ; The userid for the loghost must have read-write database permissions.
 ; and on servers, the rights to run journalctl.
 
-	new cmd,i,io,j,myname,line,loghost,ncopt,port,server
+	new cmd,i,io,j,myname,line,loghost,ncflag,ncopt,pid,port,server
 	set io=$io
 	set bootopt=$get(bootopt)
 	set dryrun=$get(dryrun,0)
+	set moreopt=$select($zlength($get(moreopt)):" "_moreopt,1:"")
 	set loghost=$zpiece($text(loghost),";",2)
 	set pid=0
 	set port=$zpiece($text(portbeg),";",2)-1
@@ -72,7 +77,7 @@ UseYDBSyslog(bootopt,dryrun,serverlst)
 	. . . if myname=server  do
 	. . . . job:'dryrun INGESTJNLCTLCMD^%YDBSYSLOG(,1)
 	. . . . write $zchar(9),$zjob,$zchar(9),"n.a."
-	. . . . job:'dryrun INGESTJNLCTLCMD^%YDBSYSLOG(bootopt)
+	. . . . job:'dryrun INGESTJNLCTLCMD^%YDBSYSLOG(bootopt,,moreopt)
 	. . . . write $zchar(9),$zjob,$zchar(9),"n.a."
 	. . . . if $increment(port,2)
 	. . . else  for j=1:1:2 do
@@ -90,11 +95,11 @@ UseYDBSyslog(bootopt,dryrun,serverlst)
 	. set ncflag=" -N"
 	. open "/etc/os-release":readonly use "/etc/os-release"
 	. for  read line quit:$zeof!(" -N"'=ncflag)  set:$zfind(line,"ID_LIKE=""fedora""") ncflag=" --send-only"
-	. use io close "/etc/os/release"
+	. use io close "/etc/os-release"
 	. for i=1:1 set server=$zpiece($text(servers+i),";",2) quit:'$zlength(server)  do:server=myname  quit:'$zlength(port)
 	. . if $increment(port,2*i-2)
 	. . for j=1:1:2 do
-	. . . set cmd="journalctl --output=export --no-pager"_$select(1=j:" --follow",1:$select($zlength(bootopt):" --boot "_bootopt,1:""))_"|nc "_loghost_" "_$increment(port)_ncflag
+	. . . set cmd="journalctl --output=export --no-pager"_$select(1=j:" --follow",1:$select($zlength(bootopt):" --boot "_bootopt,1:""))_$select(j-1:moreopt,1:"")_"|nc "_loghost_" "_$increment(port)_ncflag
 	. . . do:'dryrun
 	. . . . open loghost_j:(shell="/bin/sh":command=cmd:readonly:writeonly:independent)::"pipe"
 	. . . . use loghost_j
