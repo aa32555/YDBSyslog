@@ -214,7 +214,7 @@ OCTODDL(scanflag)
 	set lastfnum=$order(binflds(""),-1)
 	for i=1:1:lastfnum do
 	. write " ",$zwrite(binflds(i))," varchar GLOBAL ""^%ydbSLOG("
-	. for j=1:1:nkeyflds write "keys(""""",$zpiece(keyflds(j),";",1),"""""),"
+	. for j=1:1:nkeyflds write "keys(""""",$zconvert($zpiece(keyflds(j),";",1),"l"),"""""),"
 	. write """""",binflds(i),""""")"" delim """",",!
 	do:+$get(scanflag)
 	. ; Write column definitions for non-key columns, data in subtree nodes of the database, but not known to %YDBSYSLOG
@@ -222,7 +222,7 @@ OCTODDL(scanflag)
 	. set fname=""
 	. for  set fname=$order(tagcnt(fname)) quit:'$zlength(fname)  do:"fld"'=fname
 	. . write " ",$zwrite(fname)," varchar GLOBAL ""^%ydbSLOG("
-	. . for j=1:1:nkeyflds write "keys(""""",$zpiece(keyflds(j),";",1),"""""),"
+	. . for j=1:1:nkeyflds write "keys(""""",$zconvert($zpiece(keyflds(j),";",1),"l"),"""""),"
 	. . write """""",fname,""""")"" delim """",",!
 	write " PRIMARY KEY (",!
 	for i=1:1:nkeyflds-1 write " ",$zpiece(keyflds(i),";",1),",",!
