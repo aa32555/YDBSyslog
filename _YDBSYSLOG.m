@@ -192,14 +192,14 @@ OCTODDL(scanflag)
 	set io=$io
 	do etrap
 	use:'$stack $principal:(ctrap=$char(3):nocenable)
-	for i=1:1 set tmp=$text(binflds+i) quit:" "=tmp  set binflds(i)=$zpiece(tmp,";",2)	; Read binary fields
+	for i=1:1 set tmp=$text(binflds+i) quit:" "=tmp  set binflds(i)="`"_$zpiece(tmp,";",2)_"`"	; Read binary fields
 	for i=1:1 set line=$text(keyflds+i) quit:" "=line  do	; Read key fields (reverse engineered __CURSOR)
-	. set keyflds(i)=$zpiece(line,";",2,$zlength(line,";"))
+	. set keyflds(i)="`"_$zpiece(line,";",2)_"`;"_$zpiece(line,";",3,$zlength(line,";"))
 	set nkeyflds=i-1
 	do rdflds(,.types,.comments,.fbynum)			; Set piece numbers & data types for ^%ydbSLOG
 	set lastfnum=$order(fbynum(""),-1)
 	for i=1:1:lastfnum do
-	. set fname(i)=$zwrite(fbynum(i))
+	. set fname(i)="`"_fbynum(i)_"`"
 	. set ftype(i)=" "_$select($data(types(i)):types(i),1:"varchar")_","
 	. set fcomment(i)=$select($data(comments(i)):" -- "_comments(i),1:"")
 	write "DROP TABLE IF EXISTS SYSLOG_DATA KEEPDATA;",!
@@ -214,7 +214,7 @@ OCTODDL(scanflag)
 	set lastfnum=$order(binflds(""),-1)
 	for i=1:1:lastfnum do
 	. write " ",$zwrite(binflds(i))," varchar GLOBAL ""^%ydbSLOG("
-	. for j=1:1:nkeyflds write "keys(""""",$zconvert($zpiece(keyflds(j),";",1),"l"),"""""),"
+	. for j=1:1:nkeyflds write "keys(",$zconvert($ztranslate($zpiece(keyflds(j),";",1),"`"),"l"),"),"
 	. write """""",binflds(i),""""")"" delim """",",!
 	do:+$get(scanflag)
 	. ; Write column definitions for non-key columns, data in subtree nodes of the database, but not known to %YDBSYSLOG
