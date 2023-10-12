@@ -213,7 +213,7 @@ OCTODDL(scanflag)
 	; Write column definitions for non-key columns, binary data in subtree nodes known to %YDBSYSLOG
 	set lastfnum=$order(binflds(""),-1)
 	for i=1:1:lastfnum do
-	. write " ",$zwrite(binflds(i))," varchar GLOBAL ""^%ydbSLOG("
+	. write " ",binflds(i)," varchar GLOBAL ""^%ydbSLOG("
 	. for j=1:1:nkeyflds write "keys(",$zconvert($ztranslate($zpiece(keyflds(j),";",1),"`"),"l"),"),"
 	. write """""",binflds(i),""""")"" delim """",",!
 	do:+$get(scanflag)
