@@ -92,9 +92,9 @@ UseYDBSyslog(bootopt,dryrun,serverlst,moreopt)
 	. . . write !
 	. . else  if $increment(port,2)
 	else  do:'$zlength(serverlst)!$zfind(serverlst,","_myname_",")
-	. set ncflag=" -N"
+	. set ncflag=" -q 1"
 	. open "/etc/os-release":readonly use "/etc/os-release"
-	. for  read line quit:$zeof!(" -N"'=ncflag)  set:$zfind(line,"ID_LIKE=""fedora""") ncflag=" --send-only"
+	. for  read line quit:$zeof!(" -q 1"'=ncflag)  set:$zfind(line,"ID_LIKE=""fedora""") ncflag=" --send-only"
 	. use io close "/etc/os-release"
 	. for i=1:1 set server=$zpiece($text(servers+i),";",2) quit:'$zlength(server)  do:server=myname  quit:'$zlength(port)
 	. . if $increment(port,2*i-2)
